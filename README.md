@@ -17,3 +17,4 @@ docker run --rm -it -v "$(pwd)\src:/usr/src/app" --env-file local.env -p 8000:80
 - find a calendar plugin for index page to display events
 - make events exportable to outlook and/or google calendar (ics format?)
 - add more api functionality, searchability of events
+- in dockerfile - change the web layer to develop - and then make a deploy layer, that doesn't reload on save, and doesn't require mounting the volume (copies source files over)
