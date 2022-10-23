@@ -2,31 +2,69 @@
 <html>
 
 <head>
-    <title></title>
+    <title>
+        Ungarbage Event Calendar
+    </title>
+    <!-- <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = null;
+
+            fetch('http://localhost:8000/resources.json')
+                .then((response) => response.json())
+                .then((data) => {
+                    resources = []
+                    for (let i = 0; i < data.length; i++) {
+                        resource = {
+                            id: data[i],
+                            title: data[i]
+                        };
+                        resources.push(resource);
+                    }
+                    calendar = new FullCalendar.Calendar(calendarEl, {
+                        schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
+                        initialView: 'resourceTimeline',
+                        initialDate: '2022-11-28', //Date.now(),
+                        resources: resources,
+                        headerToolbar: {
+                            left: 'prev,next today',
+                            center: 'title',
+                            right: 'dayGridMonth,timeGridWeek,timeGridDay,resourceTimeline,resourceTimeGridDay'
+                        },
+                        events: []
+                    });
+
+                    fetch('http://localhost:8000/events.json')
+                        .then((response) => response.json())
+                        .then((eventData) => {
+                            for (let i = 0; i < eventData.length; i++) {
+                                resourceId = null;
+                                if (eventData[i].venue && eventData[i].room) {
+                                    resourceId = `${eventData[i].venue.name} ${eventData[i].room.name}`;
+                                };
+                                event = {
+                                    id: eventData[i].eventId,
+                                    start: eventData[i].startTime,
+                                    end: eventData[i].endTime,
+                                    title: eventData[i].name,
+                                    resourceId: resourceId
+                                };
+                                calendar.addEvent(event);
+                            }
+                            calendar.render();
+                        });
+
+                });
+        });
+    </script>
 </head>
 
 <body>
-    <script type="importmap">
-    {
-        "imports": {
-        "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
-        }
-    }
-    </script>
-
-    <div id="app">{{ message }}</div>
-
-    <script type="module">
-        import { createApp } from 'vue'
-
-        createApp({
-            data() {
-                return {
-                    message: 'Hello Vue!'
-                }
-            }
-        }).mount('#app')
-    </script>
+    <div id="calendar"></div>
 </body>
 
 </html>

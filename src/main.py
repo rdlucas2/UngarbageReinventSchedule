@@ -44,6 +44,23 @@ def read_favorites():
     return {"count": len(result), "data": result}
 
 
+@api.get("/seed-resources")
+def read_seed_resources():
+    events = load_events()
+    resources = []
+    for e in events:
+        print(e)
+        if e['venue'] and e['room']:
+            room_name = f"{e['venue']['name']} {e['room']['name']}"
+            tmp="-".join(resources)
+            if tmp.find(room_name) == -1:
+                resources.append(room_name)
+    resources_file = open("./static/resources.json", "w")
+    resources_file.write(json.dumps(resources))
+    resources_file.close()
+    return resources
+    
+
 @api.get("/seed-events")
 def read_seed_events():
     url = "https://api.us-east-1.prod.events.aws.a2z.com/attendee/graphql"
