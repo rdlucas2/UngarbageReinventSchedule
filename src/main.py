@@ -1,6 +1,8 @@
 import json
 import os
 import requests
+import pytz
+from datetime import datetime, timedelta, timezone
 from typing import Union
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -49,17 +51,16 @@ def read_seed_resources():
     events = load_events()
     resources = []
     for e in events:
-        print(e)
-        if e['venue'] and e['room']:
+        if e["venue"] and e["room"]:
             room_name = f"{e['venue']['name']} {e['room']['name']}"
-            tmp="-".join(resources)
+            tmp = "-".join(resources)
             if tmp.find(room_name) == -1:
                 resources.append(room_name)
     resources_file = open("./static/resources.json", "w")
     resources_file.write(json.dumps(resources))
     resources_file.close()
     return resources
-    
+
 
 @api.get("/seed-events")
 def read_seed_events():

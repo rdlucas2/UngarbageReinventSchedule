@@ -9,6 +9,7 @@
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script> -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var calendarEl = document.getElementById('calendar');
@@ -38,22 +39,27 @@
                         events: []
                     });
 
-                    fetch('http://localhost:8000/events.json')
+                    fetch('http://localhost:8000/api/events')
                         .then((response) => response.json())
                         .then((eventData) => {
-                            for (let i = 0; i < eventData.length; i++) {
+                            let d = eventData.data
+                            for (let i = 0; i < d.length; i++) {
                                 resourceId = null;
-                                if (eventData[i].venue && eventData[i].room) {
-                                    resourceId = `${eventData[i].venue.name} ${eventData[i].room.name}`;
+                                if (d[i].venue && d[i].room) {
+                                    resourceId = `${d[i].venue.name} ${d[i].room.name}`;
                                 };
-                                event = {
-                                    id: eventData[i].eventId,
-                                    start: eventData[i].startTime,
-                                    end: eventData[i].endTime,
-                                    title: eventData[i].name,
-                                    resourceId: resourceId
-                                };
-                                calendar.addEvent(event);
+                                if (d[i].startTime && d[i].endTime) {
+                                    //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
+                                    let isConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
+                                    event = {
+                                        id: d[i].eventId,
+                                        start: isConferenceTimezone ? d[i].startTime - 10800000 : d[i].startTime,
+                                        end: isConferenceTimezone ? d[i].endTime - 10800000 : d[i].endTime,
+                                        title: d[i].name,
+                                        resourceId: resourceId
+                                    };
+                                    calendar.addEvent(event);
+                                }
                             }
                             calendar.render();
                         });
