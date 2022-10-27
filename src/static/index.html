@@ -27,6 +27,9 @@
             }
 
             function displayCalendar(resources, events) {
+                while (calendarEl.firstChild) {
+                    calendarEl.removeChild(calendarEl.firstChild);
+                }
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
                     initialView: 'resourceTimeline',
@@ -71,9 +74,12 @@
                 let events = []
                 for (let i = 0; i < d.length; i++) {
                     resourceId = null;
+                    let isOverflow = false;
                     if (d[i].venue && d[i].room) {
                         resourceId = `${d[i].venue.name} ${d[i].room.name}`;
-                    };
+                    } else {
+                        isOverflow = true;
+                    }
                     if (d[i].startTime && d[i].endTime) {
                         //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
                         let isConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
@@ -84,29 +90,47 @@
                             title: d[i].name,
                             resourceId: resourceId
                         };
-                        // calendar.addEvent(event);
-                        // console.log(event);
                         events.push(event);
+                    } else {
+                        isOverflow = true;
+                    }
+                    if (isOverflow) {
+                        let overflowEl = document.getElementById('overflow');
+                        var li = document.createElement('li');
+                        var pre = document.createElement('pre');
+                        pre.appendChild(document.createTextNode(JSON.stringify(d[i], null, 4)));
+                        li.appendChild(pre);
+                        overflowEl.appendChild(li);
                     }
                 }
                 return events;
             }
 
-            document.getElementById('filter').addEventListener('change', function() {
+            function load_calendar(filter, refresh) {
+                getResources(refresh).then(resources => {
+                    getEvents(filter, refresh).then(events => {
+                        console.log(events.length);
+                        displayCalendar(resources, events);
+                    });
+                });
+
+            }
+
+            document.getElementById('filter').addEventListener('change', function () {
                 console.log('You selected: ', this.value);
-                getResources().then(resources => {
-                getEvents(this.value).then(events => {
-                    displayCalendar(resources, events);
-                });
+                load_calendar(this.value);
             });
 
+            document.getElementById('overflowToggle').addEventListener('click', function () {
+                let overflowEl = document.getElementById('overflow');
+                if (overflowEl.style.display === "none") {
+                    overflowEl.style.display = "block";
+                } else {
+                    overflowEl.style.display = "none";
+                }
             });
 
-            getResources().then(resources => {
-                getEvents().then(events => {
-                    displayCalendar(resources, events);
-                });
-            });
+            load_calendar();
         });
     </script>
 </head>
@@ -118,8 +142,11 @@
         <option value="reserved">reserved</option>
         <option value="reservable">reservable</option>
         <option value="favorites">favorites</option>
+        <option value="waitlistable">wait list available</option>
     </select>
     <div id="calendar"></div>
+    <button id="overflowToggle">Show/Hide Events Without Venue or Times</button>
+    <ul id="overflow" style="display:none;"></ul>
 </body>
 
 </html>

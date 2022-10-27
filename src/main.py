@@ -88,6 +88,14 @@ def read_reservable(refresh: bool = False):
     return {"count": len(result), "data": result}
 
 
+@api.get("/events/waitlistable")
+def read_reservable(refresh: bool = False):
+    events = load_events(refresh)
+    result = [e for e in events if e["action"] == "WAITLISTABLE"]
+    print(len(result))
+    return {"count": len(result), "data": result}
+
+
 @api.get("/events/reserved")
 def read_reserved(refresh: bool = False):
     events = load_events(refresh)
