@@ -13,8 +13,9 @@ RUN pip install --upgrade pip
 COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy project 
-#COPY ./src . # commented out for now - instead going to mount the working directory #
-
-FROM base as web
+FROM base as development
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--reload"]
+
+FROM base as artifact
+COPY ./src .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]

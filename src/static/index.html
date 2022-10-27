@@ -5,8 +5,6 @@
     <title>
         Ungarbage Event Calendar
     </title>
-    <!-- <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script> -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
 
@@ -14,62 +12,113 @@
         document.addEventListener('DOMContentLoaded', function () {
             var calendarEl = document.getElementById('calendar');
             var calendar = null;
+            var currentDate = new Date();
+            var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
+            var localOffset = getTimeZoneOffset(currentDate, Intl.DateTimeFormat().resolvedOptions().timeZone);
+            var offsetFromLosAngelesTime = (vegasOffset - (((vegasOffset - localOffset) / 60) > 12 ? localOffset - 60 : localOffset)) * 60 * 1000; //for New York, should be = 10800000
+            var resources = [];
+            var apiBaseUrl = 'http://localhost:8000/api';
 
-            fetch('http://localhost:8000/resources.json')
-                .then((response) => response.json())
-                .then((data) => {
-                    resources = []
-                    for (let i = 0; i < data.length; i++) {
-                        resource = {
-                            id: data[i],
-                            title: data[i]
-                        };
-                        resources.push(resource);
-                    }
-                    calendar = new FullCalendar.Calendar(calendarEl, {
-                        schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
-                        initialView: 'resourceTimeline',
-                        initialDate: '2022-11-28', //Date.now(),
-                        resources: resources,
-                        headerToolbar: {
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,timeGridWeek,timeGridDay,resourceTimeline,resourceTimeGridDay'
-                        },
-                        events: []
-                    });
+            function getTimeZoneOffset(date, timeZone) {
+                let iso = date.toLocaleString('en-CA', { timeZone, hour12: false }).replace(', ', 'T');
+                iso += '.' + date.getMilliseconds().toString().padStart(3, '0');
+                const lie = new Date(iso + 'Z');
+                return -(lie - date) / 60 / 1000;
+            }
 
-                    fetch('http://localhost:8000/api/events')
-                        .then((response) => response.json())
-                        .then((eventData) => {
-                            let d = eventData.data
-                            for (let i = 0; i < d.length; i++) {
-                                resourceId = null;
-                                if (d[i].venue && d[i].room) {
-                                    resourceId = `${d[i].venue.name} ${d[i].room.name}`;
-                                };
-                                if (d[i].startTime && d[i].endTime) {
-                                    //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
-                                    let isConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
-                                    event = {
-                                        id: d[i].eventId,
-                                        start: isConferenceTimezone ? d[i].startTime - 10800000 : d[i].startTime,
-                                        end: isConferenceTimezone ? d[i].endTime - 10800000 : d[i].endTime,
-                                        title: d[i].name,
-                                        resourceId: resourceId
-                                    };
-                                    calendar.addEvent(event);
-                                }
-                            }
-                            calendar.render();
-                        });
-
+            function displayCalendar(resources, events) {
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
+                    initialView: 'resourceTimeline',
+                    initialDate: '2022-11-28', //Date.now(),
+                    resources: resources,
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay,resourceTimeline,resourceTimeGridDay'
+                    },
+                    events: events
                 });
+                calendar.render();
+            }
+
+            async function getResources(refresh) {
+                if (!refresh)
+                    refresh = false;
+                let response = await fetch(`${apiBaseUrl}/resources?refresh=${refresh}`);
+                let rawResources = await response.json();
+                let resources = []
+                for (let i = 0; i < rawResources.length; i++) {
+                    resource = {
+                        id: rawResources[i],
+                        title: rawResources[i]
+                    };
+                    resources.push(resource);
+                }
+                return resources;
+            }
+
+            async function getEvents(filter, refresh) {
+                if (!refresh)
+                    refresh = false;
+                let url = `${apiBaseUrl}/events?refresh=${refresh}`
+                if (filter) {
+                    url = `${apiBaseUrl}/events/${filter}?refresh=${refresh}`
+                }
+                let response = await fetch(url);
+                let rawEvents = await response.json();
+                let d = rawEvents.data;
+                let events = []
+                for (let i = 0; i < d.length; i++) {
+                    resourceId = null;
+                    if (d[i].venue && d[i].room) {
+                        resourceId = `${d[i].venue.name} ${d[i].room.name}`;
+                    };
+                    if (d[i].startTime && d[i].endTime) {
+                        //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
+                        let isConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
+                        event = {
+                            id: d[i].eventId,
+                            start: isConferenceTimezone ? d[i].startTime - offsetFromLosAngelesTime : d[i].startTime,
+                            end: isConferenceTimezone ? d[i].endTime - offsetFromLosAngelesTime : d[i].endTime,
+                            title: d[i].name,
+                            resourceId: resourceId
+                        };
+                        // calendar.addEvent(event);
+                        // console.log(event);
+                        events.push(event);
+                    }
+                }
+                return events;
+            }
+
+            document.getElementById('filter').addEventListener('change', function() {
+                console.log('You selected: ', this.value);
+                getResources().then(resources => {
+                getEvents(this.value).then(events => {
+                    displayCalendar(resources, events);
+                });
+            });
+
+            });
+
+            getResources().then(resources => {
+                getEvents().then(events => {
+                    displayCalendar(resources, events);
+                });
+            });
         });
     </script>
 </head>
 
 <body>
+    <label>Filter events:</label>
+    <select id="filter">
+        <option value="">all</option>
+        <option value="reserved">reserved</option>
+        <option value="reservable">reservable</option>
+        <option value="favorites">favorites</option>
+    </select>
     <div id="calendar"></div>
 </body>
 
