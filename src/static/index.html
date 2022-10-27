@@ -11,6 +11,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var calendarEl = document.getElementById('calendar');
+            var overflowEl = document.getElementById('overflow');
+            var refreshEl = document.getElementById("refresh");
             var calendar = null;
             var currentDate = new Date();
             var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
@@ -26,10 +28,14 @@
                 return -(lie - date) / 60 / 1000;
             }
 
-            function displayCalendar(resources, events) {
-                while (calendarEl.firstChild) {
-                    calendarEl.removeChild(calendarEl.firstChild);
+            function clearElement(element) {
+                while (element.firstChild) {
+                    element.removeChild(element.firstChild);
                 }
+            }
+
+            function displayCalendar(resources, events) {
+                clearElement(calendarEl);
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
                     initialView: 'resourceTimeline',
@@ -95,7 +101,6 @@
                         isOverflow = true;
                     }
                     if (isOverflow) {
-                        let overflowEl = document.getElementById('overflow');
                         var li = document.createElement('li');
                         var pre = document.createElement('pre');
                         pre.appendChild(document.createTextNode(JSON.stringify(d[i], null, 4)));
@@ -107,22 +112,22 @@
             }
 
             function load_calendar(filter, refresh) {
+                clearElement(overflowEl);
                 getResources(refresh).then(resources => {
                     getEvents(filter, refresh).then(events => {
                         console.log(events.length);
                         displayCalendar(resources, events);
                     });
                 });
-
             }
 
             document.getElementById('filter').addEventListener('change', function () {
                 console.log('You selected: ', this.value);
-                load_calendar(this.value);
+                console.log("refresh", refreshEl.checked);
+                load_calendar(this.value, refreshEl.checked);
             });
 
             document.getElementById('overflowToggle').addEventListener('click', function () {
-                let overflowEl = document.getElementById('overflow');
                 if (overflowEl.style.display === "none") {
                     overflowEl.style.display = "block";
                 } else {
@@ -136,14 +141,17 @@
 </head>
 
 <body>
-    <label>Filter events:</label>
-    <select id="filter">
+    <label for="filter">Filter events:</label>
+    <select id="filter" name="filter">
         <option value="">all</option>
         <option value="reserved">reserved</option>
         <option value="reservable">reservable</option>
         <option value="favorites">favorites</option>
         <option value="waitlistable">wait list available</option>
     </select>
+    <br />
+    <input type="checkbox" name="refresh" id="refresh">
+    <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to receive updates)</label>
     <div id="calendar"></div>
     <button id="overflowToggle">Show/Hide Events Without Venue or Times</button>
     <ul id="overflow" style="display:none;"></ul>
