@@ -5,6 +5,8 @@
     <title>
         Ungarbage Event Calendar
     </title>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
 
@@ -20,6 +22,15 @@
             var offsetFromLosAngelesTime = (vegasOffset - (((vegasOffset - localOffset) / 60) > 12 ? localOffset - 60 : localOffset)) * 60 * 1000; //for New York, should be = 10800000
             var resources = [];
             var apiBaseUrl = 'http://localhost:8000/api';
+
+            var stringToColor = (string, saturation = 100, lightness = 75) => {
+                let hash = 0;
+                for (let i = 0; i < string.length; i++) {
+                    hash = string.charCodeAt(i) + ((hash << 5) - hash);
+                    hash = hash & hash;
+                }
+                return `hsl(${(hash % 360)}, ${saturation}%, ${lightness}%)`;
+            }
 
             function getTimeZoneOffset(date, timeZone) {
                 let iso = date.toLocaleString('en-CA', { timeZone, hour12: false }).replace(', ', 'T');
@@ -38,6 +49,7 @@
                 clearElement(calendarEl);
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
+                    themeStyle: 'bootsrap5',
                     initialView: 'resourceTimeline',
                     initialDate: '2022-11-28', //Date.now(),
                     resources: resources,
@@ -94,7 +106,10 @@
                             start: isConferenceTimezone ? d[i].startTime - offsetFromLosAngelesTime : d[i].startTime,
                             end: isConferenceTimezone ? d[i].endTime - offsetFromLosAngelesTime : d[i].endTime,
                             title: d[i].name,
-                            resourceId: resourceId
+                            resourceId: resourceId,
+                            backgroundColor: stringToColor(d[i].sessionType.name),
+                            textColor: '#000000',
+                            borderColor: '#000000'
                         };
                         events.push(event);
                     } else {
@@ -149,9 +164,17 @@
         <option value="favorites">favorites</option>
         <option value="waitlistable">wait list available</option>
     </select>
+    <!--
+        Should I allow a user to enter their bearer token, and pass it into the request, 
+        generalizing this so you don't have to run your own server? 
+        Instead of saving to a file, cache events in local storage instead?
+    -->
+    <!-- <label for="token">Bearer Token for AWS Lambda:</label>
+    <input type="password" name="token" id="token" > -->
     <br />
     <input type="checkbox" name="refresh" id="refresh">
-    <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to receive updates)</label>
+    <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to receive
+        updates)</label>
     <div id="calendar"></div>
     <button id="overflowToggle">Show/Hide Events Without Venue or Times</button>
     <ul id="overflow" style="display:none;"></ul>
