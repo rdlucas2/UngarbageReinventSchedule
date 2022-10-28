@@ -15,6 +15,7 @@
             var calendarEl = document.getElementById('calendar');
             var overflowEl = document.getElementById('overflow');
             var refreshEl = document.getElementById("refresh");
+            var legendEl = document.getElementById('legend');
             var calendar = null;
             var currentDate = new Date();
             var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
@@ -22,6 +23,7 @@
             var offsetFromLosAngelesTime = (vegasOffset - (((vegasOffset - localOffset) / 60) > 12 ? localOffset - 60 : localOffset)) * 60 * 1000; //for New York, should be = 10800000
             var resources = [];
             var apiBaseUrl = 'http://localhost:8000/api';
+            var legend = [];
 
             var stringToColor = (string, saturation = 100, lightness = 75) => {
                 let hash = 0;
@@ -29,7 +31,14 @@
                     hash = string.charCodeAt(i) + ((hash << 5) - hash);
                     hash = hash & hash;
                 }
-                return `hsl(${(hash % 360)}, ${saturation}%, ${lightness}%)`;
+                result = `hsl(${(hash % 360)}, ${saturation}%, ${lightness}%)`;
+                if (legend.findIndex(x => x.label === string) < 0) {
+                    legend.push({
+                        label: string,
+                        color: result
+                    });
+                }
+                return result;
             }
 
             function getTimeZoneOffset(date, timeZone) {
@@ -49,7 +58,7 @@
                 clearElement(calendarEl);
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
-                    themeStyle: 'bootsrap5',
+                    themeSystem: 'bootsrap5',
                     initialView: 'resourceTimeline',
                     initialDate: '2022-11-28', //Date.now(),
                     resources: resources,
@@ -61,6 +70,13 @@
                     events: events
                 });
                 calendar.render();
+            }
+
+            function displayLegend() {
+                clearElement(legendEl);
+                for (var i = 0; i < legend.length; i++) {
+                    legendEl.innerHTML += `<li style="float:left;">${legend[i].label} <div style="background-color: ${legend[i].color}; width:20px; height:20px; text-indent: -9999px;">x</div></li>`;
+                }
             }
 
             async function getResources(refresh) {
@@ -132,6 +148,7 @@
                     getEvents(filter, refresh).then(events => {
                         console.log(events.length);
                         displayCalendar(resources, events);
+                        displayLegend();
                     });
                 });
             }
@@ -156,26 +173,32 @@
 </head>
 
 <body>
-    <label for="filter">Filter events:</label>
-    <select id="filter" name="filter">
-        <option value="">all</option>
-        <option value="reserved">reserved</option>
-        <option value="reservable">reservable</option>
-        <option value="favorites">favorites</option>
-        <option value="waitlistable">wait list available</option>
-    </select>
-    <!--
-        Should I allow a user to enter their bearer token, and pass it into the request, 
-        generalizing this so you don't have to run your own server? 
-        Instead of saving to a file, cache events in local storage instead?
-    -->
-    <!-- <label for="token">Bearer Token for AWS Lambda:</label>
-    <input type="password" name="token" id="token" > -->
-    <br />
-    <input type="checkbox" name="refresh" id="refresh">
-    <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to receive
-        updates)</label>
-    <div id="calendar"></div>
+    <div style="float:left">
+        <label for="filter">Filter events:</label>
+        <select id="filter" name="filter">
+            <option value="">all</option>
+            <option value="reserved">reserved</option>
+            <option value="reservable">reservable</option>
+            <option value="favorites">favorites</option>
+            <option value="waitlistable">wait list available</option>
+        </select>
+        <!--
+            Should I allow a user to enter their bearer token, and pass it into the request, 
+            generalizing this so you don't have to run your own server? 
+            Instead of saving to a file, cache events in local storage instead?
+        -->
+        <!-- <label for="token">Bearer Token for AWS Lambda:</label>
+        <input type="password" name="token" id="token" > -->
+        <br />
+        <input type="checkbox" name="refresh" id="refresh">
+        <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to
+            receive
+            updates)</label>
+    </div>
+    <div style="float:left">
+        <ul id="legend" style="list-style-type: none; padding-right:20px"></ul>
+    </div>
+    <div id="calendar" style="clear:left;"></div>
     <button id="overflowToggle">Show/Hide Events Without Venue or Times</button>
     <ul id="overflow" style="display:none;"></ul>
 </body>
