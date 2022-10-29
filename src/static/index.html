@@ -12,18 +12,29 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            var apiBaseUrl = 'http://localhost:8000/api';
+            var calendar = null;
             var calendarEl = document.getElementById('calendar');
             var overflowEl = document.getElementById('overflow');
             var refreshEl = document.getElementById("refresh");
             var legendEl = document.getElementById('legend');
-            var calendar = null;
+            var tokenEl = document.getElementById('token');
+            var overflowTotalEl = document.getElementById('overflowTotal');
             var currentDate = new Date();
             var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
             var localOffset = getTimeZoneOffset(currentDate, Intl.DateTimeFormat().resolvedOptions().timeZone);
             var offsetFromLosAngelesTime = (vegasOffset - (((vegasOffset - localOffset) / 60) > 12 ? localOffset - 60 : localOffset)) * 60 * 1000; //for New York, should be = 10800000
-            var resources = [];
-            var apiBaseUrl = 'http://localhost:8000/api';
-            var legend = [];
+
+            const indexedDB =
+                window.indexedDB ||
+                window.mozIndexedDB ||
+                window.webkitIndexedDB ||
+                window.msIndexedDB ||
+                window.shimIndexedDB;
+
+            if (!indexedDB) {
+                alert("IndexedDB could not be found in this browser, it is required to use this application.");
+            }
 
             var stringToColor = (string, saturation = 100, lightness = 75) => {
                 let hash = 0;
@@ -32,18 +43,18 @@
                     hash = hash & hash;
                 }
                 result = `hsl(${(hash % 360)}, ${saturation}%, ${lightness}%)`;
-                if (legend.findIndex(x => x.label === string) < 0) {
-                    legend.push({
-                        label: string,
-                        color: result
-                    });
-                }
                 return result;
             }
 
             function getTimeZoneOffset(date, timeZone) {
                 let iso = date.toLocaleString('en-CA', { timeZone, hour12: false }).replace(', ', 'T');
                 iso += '.' + date.getMilliseconds().toString().padStart(3, '0');
+                //another hack - time was showing as 24:41... any value over 24 is invalid though
+                tmp = iso.split('T')
+                if (tmp[1].startsWith("24")) {
+                    t = tmp[1].split(":");
+                    iso = `${tmp[0]}T00:${t[1]}:${t[2]}`
+                }
                 const lie = new Date(iso + 'Z');
                 return -(lie - date) / 60 / 1000;
             }
@@ -54,8 +65,24 @@
                 }
             }
 
-            function displayCalendar(resources, events) {
-                clearElement(calendarEl);
+            function displayCalendar(events, resources) {
+                let calEvents = [];
+                for (var i = 0; i < events.length; i++) {
+                    resourceId = `${events[i].venue.name} ${events[i].room.name}`
+                    //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
+                    let isNotConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
+                    calEvent = {
+                        id: i + 1,
+                        start: isNotConferenceTimezone ? (events[i].startTime - offsetFromLosAngelesTime) : events[i].startTime,
+                        end: isNotConferenceTimezone ? (events[i].endTime - offsetFromLosAngelesTime) : events[i].endTime,
+                        title: events[i].name,
+                        resourceId: resourceId,
+                        backgroundColor: stringToColor(events[i].sessionType.name),
+                        textColor: '#000000',
+                        borderColor: '#000000'
+                    };
+                    calEvents.push(calEvent);
+                }
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
                     themeSystem: 'bootsrap5',
@@ -67,96 +94,119 @@
                         center: 'title',
                         right: 'dayGridMonth,timeGridWeek,timeGridDay,resourceTimeline,resourceTimeGridDay'
                     },
-                    events: events
+                    events: calEvents
                 });
                 calendar.render();
             }
 
-            function displayLegend() {
+            function displayLegend(events) {
+                let legend = [];
+                for (var i = 0; i < events.length; i++) {
+                    if (legend.findIndex(x => x.label === events[i].sessionType.name) < 0) {
+                        legend.push({
+                            label: events[i].sessionType.name,
+                            color: stringToColor(events[i].sessionType.name)
+                        });
+                    }
+                }
                 clearElement(legendEl);
                 for (var i = 0; i < legend.length; i++) {
                     legendEl.innerHTML += `<li style="float:left;">${legend[i].label} <div style="background-color: ${legend[i].color}; width:20px; height:20px; text-indent: -9999px;">x</div></li>`;
                 }
             }
 
-            async function getResources(refresh) {
-                if (!refresh)
-                    refresh = false;
-                let response = await fetch(`${apiBaseUrl}/resources?refresh=${refresh}`);
-                let rawResources = await response.json();
-                let resources = []
-                for (let i = 0; i < rawResources.length; i++) {
-                    resource = {
-                        id: rawResources[i],
-                        title: rawResources[i]
-                    };
-                    resources.push(resource);
+            function displayOverflow(i, d) {
+                clearElement(overflowEl);
+                for (var i = 0; i < localStorage.length; i++) {
+                    key = localStorage.key(i);
+                    if (key.startsWith('overflow')) {
+                        var li = document.createElement('li');
+                        var pre = document.createElement('pre');
+                        pre.appendChild(document.createTextNode(JSON.stringify(JSON.parse(localStorage.getItem(key)), null, 4)));
+                        li.appendChild(pre);
+                        overflowEl.appendChild(li);
+                    }
                 }
-                return resources;
             }
 
-            async function getEvents(filter, refresh) {
-                if (!refresh)
-                    refresh = false;
-                let url = `${apiBaseUrl}/events?refresh=${refresh}`
-                if (filter) {
-                    url = `${apiBaseUrl}/events/${filter}?refresh=${refresh}`
-                }
-                let response = await fetch(url);
+            function displayOverflowTotal() {
+                overflowTotalEl.innerText = overflowEl.getElementsByTagName('li').length.toString();
+            }
+
+            function displayAll(events) {
+                let resources = JSON.parse(localStorage.getItem('resources'));
+                displayCalendar(events, resources);
+                displayLegend(events);
+                displayOverflow();
+                displayOverflowTotal();
+            }
+
+            async function loadEvents() {
+                localStorage.clear();
+                //TODO: get rid of the server entirely by using fetch directly from here?
+                let url = `${apiBaseUrl}/events`
+                let response = await fetch(url, {
+                    headers: {
+                        'aws-bearer-token': tokenEl.value
+                    }
+                });
                 let rawEvents = await response.json();
                 let d = rawEvents.data;
-                let events = []
+                let events = [];
+                let resources = [];
                 for (let i = 0; i < d.length; i++) {
                     resourceId = null;
                     let isOverflow = false;
                     if (d[i].venue && d[i].room) {
                         resourceId = `${d[i].venue.name} ${d[i].room.name}`;
+                        if (resources.findIndex(x => x.id === resourceId) < 0) {
+                            resources.push({
+                                id: resourceId,
+                                title: resourceId
+                            });
+                        }
                     } else {
                         isOverflow = true;
                     }
                     if (d[i].startTime && d[i].endTime) {
-                        //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
-                        let isConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
-                        event = {
-                            id: d[i].eventId,
-                            start: isConferenceTimezone ? d[i].startTime - offsetFromLosAngelesTime : d[i].startTime,
-                            end: isConferenceTimezone ? d[i].endTime - offsetFromLosAngelesTime : d[i].endTime,
-                            title: d[i].name,
-                            resourceId: resourceId,
-                            backgroundColor: stringToColor(d[i].sessionType.name),
-                            textColor: '#000000',
-                            borderColor: '#000000'
-                        };
-                        events.push(event);
+                        d[i].id = i;
+                        if (!(d[i].venue && d[i].room)) {
+                            d[i].venue = {};
+                            d[i].venue.name = "";
+                            d[i].room = {};
+                            d[i].room.name = "No Room";
+                        }
+                        events.push(d[i]);
                     } else {
                         isOverflow = true;
                     }
                     if (isOverflow) {
-                        var li = document.createElement('li');
-                        var pre = document.createElement('pre');
-                        pre.appendChild(document.createTextNode(JSON.stringify(d[i], null, 4)));
-                        li.appendChild(pre);
-                        overflowEl.appendChild(li);
+                        localStorage.setItem(`overflow${i}`, JSON.stringify(d[i]));
                     }
                 }
-                return events;
-            }
-
-            function load_calendar(filter, refresh) {
-                clearElement(overflowEl);
-                getResources(refresh).then(resources => {
-                    getEvents(filter, refresh).then(events => {
-                        console.log(events.length);
-                        displayCalendar(resources, events);
-                        displayLegend();
-                    });
-                });
+                resources.push({
+                    id: "No Room",
+                    title: "No Room"
+                })
+                localStorage.setItem('resources', JSON.stringify(resources));
+                return events
             }
 
             document.getElementById('filter').addEventListener('change', function () {
                 console.log('You selected: ', this.value);
-                console.log("refresh", refreshEl.checked);
-                load_calendar(this.value, refreshEl.checked);
+                //TODO: filter results from indexedDB into the calendar
+                switch (this.value) {
+                    case 'all':
+                        break;
+                    case 'reservable':
+                        break;
+                    case 'wait list available':
+                        break;
+                    case 'reserved':
+                        break;
+                    case 'favorites':
+                        break;
+                }
             });
 
             document.getElementById('overflowToggle').addEventListener('click', function () {
@@ -167,39 +217,125 @@
                 }
             });
 
-            load_calendar();
+            document.getElementById('loadEvents').addEventListener('click', function () {
+                // loadFromAws().then((data) => {
+                //     console.log(data);
+                // });
+
+                const request = indexedDB.open("EventDatabase", 1);
+
+                request.onerror = function (event) {
+                    console.error("An error occurred with IndexedDB");
+                    console.error(event);
+                };
+
+                request.onupgradeneeded = function () {
+                    const db = request.result;
+                    const store = db.createObjectStore("events", { keyPath: "id" });
+                };
+
+                request.onsuccess = function () {
+                    loadEvents().then(events => {
+                        console.log(events.length);
+                        const db = request.result;
+                        const clearTransaction = db.transaction("events", "readwrite").objectStore("events").clear();
+                        clearTransaction.onsuccess = () => {
+                            const transaction = db.transaction("events", "readwrite");
+                            const store = transaction.objectStore("events");
+                            for (var i = 0; i < events.length; i++) {
+                                store.put(events[i]);
+                            }
+                            transaction.oncomplete = function () {
+                                db.close();
+                            };
+                            displayAll(events);
+                        }
+                        clearTransaction.onerror = (err) => {
+                            console.log(err);
+                        }
+                    });
+                };
+            });
+
+            //TODO: if events/resources exist on initial load... populate the calendar
+            function loadEventsFromLocal() {
+                const req = indexedDB.open("EventDatabase", 1);
+
+                req.onerror = function (event) {
+                    console.error("An error occurred with IndexedDB");
+                    console.error(event);
+                };
+
+                req.onsuccess = (e) => {
+                    // Create the DB connection
+                    let localdb = req.result;
+                    let t;
+                    try {
+                        t = localdb.transaction('events', 'readonly').objectStore('events').getAll();
+                    } catch (error) {
+                        console.log(error);
+                        indexedDB.deleteDatabase('EventDatabase');
+                        alert('Locally stored events do not exist, you must get your bearer token and use the (re)load events button');
+                        return;
+                    }
+                    t.onsuccess = () => {
+                        const events = t.result;
+                        displayAll(events);
+                    }
+                    t.oncomplete = function () {
+                        localdb.close();
+                    };
+                };
+            }
+
+            loadEventsFromLocal();
+            async function loadFromAws() {
+                let next_token = null;
+                let response = await fetch('https://api.us-east-1.prod.events.aws.a2z.com/attendee/graphql', {
+                    method: 'POST',
+                    headers: {
+                        "Authorization": `Bearer ${tokenEl.value}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(
+                        {
+                            "operationName": "listAttendeeSessions",
+                            "variables": {
+                                "input": {
+                                    "eventId": "53b5de8d-7b9d-4fcc-a178-6433641075fe",
+                                    "maxResults": 97,
+                                    "nextToken": next_token,
+                                }
+                            },
+                            "query": "query listAttendeeSessions($input: ListAttendeeSessionsInput!) {\n  listAttendeeSessions(input: $input) {\n    results {\n      ...SessionFragment\n      __typename\n    }\n    totalCount\n    nextToken\n    __typename\n  }\n}\n\nfragment SessionFragment on Session {\n  ...SessionFieldFragment\n  isConflicting {\n    reserved {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    waitlisted {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment SessionFieldFragment on Session {\n  action\n  alias\n  createdAt\n  description\n  duration\n  endTime\n  eventId\n  isConflicting {\n    reserved {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    waitlisted {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    __typename\n  }\n  isEmbargoed\n  isFavoritedByMe\n  isPaidSession\n  level\n  location\n  myReservationStatus\n  name\n  sessionId\n  startTime\n  status\n  type\n  capacities {\n    reservableRemaining\n    waitlistRemaining\n    __typename\n  }\n  customFieldDetails {\n    name\n    type\n    visibility\n    fieldId\n    ... on CustomFieldValueFlag {\n      enabled\n      __typename\n    }\n    ... on CustomFieldValueSingleSelect {\n      value {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueMultiSelect {\n      values {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueHyperlink {\n      text\n      url\n      __typename\n    }\n    __typename\n  }\n  package {\n    itemId\n    __typename\n  }\n  price {\n    currency\n    value\n    __typename\n  }\n  venue {\n    name\n    __typename\n  }\n  room {\n    name\n    __typename\n  }\n  sessionType {\n    name\n    __typename\n  }\n  speakers {\n    speakerId\n    jobTitle\n    companyName\n    user {\n      firstName\n      lastName\n      __typename\n    }\n    __typename\n  }\n  tracks {\n    name\n    __typename\n  }\n  __typename\n}\n",
+                        }
+                    )
+                });
+                return response.json();
+            }
         });
     </script>
 </head>
 
 <body>
-    <div style="float:left">
-        <label for="filter">Filter events:</label>
-        <select id="filter" name="filter">
-            <option value="">all</option>
-            <option value="reserved">reserved</option>
-            <option value="reservable">reservable</option>
-            <option value="favorites">favorites</option>
-            <option value="waitlistable">wait list available</option>
-        </select>
-        <!--
-            Should I allow a user to enter their bearer token, and pass it into the request, 
-            generalizing this so you don't have to run your own server? 
-            Instead of saving to a file, cache events in local storage instead?
-        -->
-        <!-- <label for="token">Bearer Token for AWS Lambda:</label>
-        <input type="password" name="token" id="token" > -->
-        <br />
-        <input type="checkbox" name="refresh" id="refresh">
-        <label for="refresh">Refresh from AWS <br />(only check if you've made changes on the events page or need to
-            receive
-            updates)</label>
-    </div>
-    <div style="float:left">
-        <ul id="legend" style="list-style-type: none; padding-right:20px"></ul>
-    </div>
+    <label for="filter">Filter events:</label>
+    <select id="filter" name="filter">
+        <option value="">all</option>
+        <option value="reserved">reserved</option>
+        <option value="reservable">reservable</option>
+        <option value="favorites">favorites</option>
+        <option value="waitlistable">wait list available</option>
+    </select>
+    <label for="token">Bearer Token for AWS Lambda:</label>
+    <input type="password" name="token" id="token"><button id="loadEvents">(re)load events</button>
+    <p>Your events are saved to local storage in your browser. You must provide your bearer token (found by using
+        browser dev tools on the re:invent event page). Use the (re)load events button to initialize events, or reload
+        after you make a change on the event site.</p>
+    <p><a href="https://portal.awsevents.com/events/reInvent2022/registration">re:invent 2022 login page</a></p>
+    <ul id="legend" style="list-style-type: none; padding-right:20px"></ul>
     <div id="calendar" style="clear:left;"></div>
-    <button id="overflowToggle">Show/Hide Events Without Venue or Times</button>
+    <button id="overflowToggle">Show/Hide Events Without Venue or Times (<span id="overflowTotal"></span>
+        Total)</button>
     <ul id="overflow" style="display:none;"></ul>
 </body>
 
