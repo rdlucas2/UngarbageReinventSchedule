@@ -143,14 +143,7 @@
 
             async function loadEvents() {
                 localStorage.clear();
-                //TODO: get rid of the server entirely by using fetch directly from here?
-                let url = `${apiBaseUrl}/events`
-                let response = await fetch(url, {
-                    headers: {
-                        'aws-bearer-token': tokenEl.value
-                    }
-                });
-                let rawEvents = await response.json();
+                let rawEvents = await loadFromAws();
                 let d = rawEvents.data;
                 let events = [];
                 let resources = [];
@@ -257,7 +250,6 @@
                 };
             });
 
-            //TODO: if events/resources exist on initial load... populate the calendar
             function loadEventsFromLocal() {
                 const req = indexedDB.open("EventDatabase", 1);
 
@@ -291,27 +283,40 @@
             loadEventsFromLocal();
             async function loadFromAws() {
                 let next_token = null;
-                let response = await fetch('https://api.us-east-1.prod.events.aws.a2z.com/attendee/graphql', {
-                    method: 'POST',
-                    headers: {
-                        "Authorization": `Bearer ${tokenEl.value}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(
-                        {
-                            "operationName": "listAttendeeSessions",
-                            "variables": {
-                                "input": {
-                                    "eventId": "53b5de8d-7b9d-4fcc-a178-6433641075fe",
-                                    "maxResults": 97,
-                                    "nextToken": next_token,
-                                }
-                            },
-                            "query": "query listAttendeeSessions($input: ListAttendeeSessionsInput!) {\n  listAttendeeSessions(input: $input) {\n    results {\n      ...SessionFragment\n      __typename\n    }\n    totalCount\n    nextToken\n    __typename\n  }\n}\n\nfragment SessionFragment on Session {\n  ...SessionFieldFragment\n  isConflicting {\n    reserved {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    waitlisted {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment SessionFieldFragment on Session {\n  action\n  alias\n  createdAt\n  description\n  duration\n  endTime\n  eventId\n  isConflicting {\n    reserved {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    waitlisted {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    __typename\n  }\n  isEmbargoed\n  isFavoritedByMe\n  isPaidSession\n  level\n  location\n  myReservationStatus\n  name\n  sessionId\n  startTime\n  status\n  type\n  capacities {\n    reservableRemaining\n    waitlistRemaining\n    __typename\n  }\n  customFieldDetails {\n    name\n    type\n    visibility\n    fieldId\n    ... on CustomFieldValueFlag {\n      enabled\n      __typename\n    }\n    ... on CustomFieldValueSingleSelect {\n      value {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueMultiSelect {\n      values {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueHyperlink {\n      text\n      url\n      __typename\n    }\n    __typename\n  }\n  package {\n    itemId\n    __typename\n  }\n  price {\n    currency\n    value\n    __typename\n  }\n  venue {\n    name\n    __typename\n  }\n  room {\n    name\n    __typename\n  }\n  sessionType {\n    name\n    __typename\n  }\n  speakers {\n    speakerId\n    jobTitle\n    companyName\n    user {\n      firstName\n      lastName\n      __typename\n    }\n    __typename\n  }\n  tracks {\n    name\n    __typename\n  }\n  __typename\n}\n",
-                        }
-                    )
-                });
-                return response.json();
+                let results = [];
+                while (true) {
+                    let response = await fetch('https://api.us-east-1.prod.events.aws.a2z.com/attendee/graphql', {
+                        method: 'POST',
+                        headers: {
+                            "Authorization": `Bearer ${tokenEl.value}`,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(
+                            {
+                                "operationName": "listAttendeeSessions",
+                                "variables": {
+                                    "input": {
+                                        "eventId": "53b5de8d-7b9d-4fcc-a178-6433641075fe",
+                                        "maxResults": 97,
+                                        "nextToken": next_token,
+                                    }
+                                },
+                                "query": "query listAttendeeSessions($input: ListAttendeeSessionsInput!) {\n  listAttendeeSessions(input: $input) {\n    results {\n      ...SessionFragment\n      __typename\n    }\n    totalCount\n    nextToken\n    __typename\n  }\n}\n\nfragment SessionFragment on Session {\n  ...SessionFieldFragment\n  isConflicting {\n    reserved {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    waitlisted {\n      eventId\n      sessionId\n      isPaidSession\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment SessionFieldFragment on Session {\n  action\n  alias\n  createdAt\n  description\n  duration\n  endTime\n  eventId\n  isConflicting {\n    reserved {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    waitlisted {\n      alias\n      createdAt\n      eventId\n      name\n      sessionId\n      type\n      __typename\n    }\n    __typename\n  }\n  isEmbargoed\n  isFavoritedByMe\n  isPaidSession\n  level\n  location\n  myReservationStatus\n  name\n  sessionId\n  startTime\n  status\n  type\n  capacities {\n    reservableRemaining\n    waitlistRemaining\n    __typename\n  }\n  customFieldDetails {\n    name\n    type\n    visibility\n    fieldId\n    ... on CustomFieldValueFlag {\n      enabled\n      __typename\n    }\n    ... on CustomFieldValueSingleSelect {\n      value {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueMultiSelect {\n      values {\n        fieldOptionId\n        name\n        __typename\n      }\n      __typename\n    }\n    ... on CustomFieldValueHyperlink {\n      text\n      url\n      __typename\n    }\n    __typename\n  }\n  package {\n    itemId\n    __typename\n  }\n  price {\n    currency\n    value\n    __typename\n  }\n  venue {\n    name\n    __typename\n  }\n  room {\n    name\n    __typename\n  }\n  sessionType {\n    name\n    __typename\n  }\n  speakers {\n    speakerId\n    jobTitle\n    companyName\n    user {\n      firstName\n      lastName\n      __typename\n    }\n    __typename\n  }\n  tracks {\n    name\n    __typename\n  }\n  __typename\n}\n",
+                            }
+                        )
+                    });
+                    let result = await response.json();
+                    events = result.data.listAttendeeSessions.results;
+                    results = results.concat(events);
+                    next_token = result.data.listAttendeeSessions.nextToken;
+                    if (!next_token) {
+                        break;
+                    }
+                }
+                return {
+                    "count": results.length,
+                    "data": results
+                };
             }
         });
     </script>
