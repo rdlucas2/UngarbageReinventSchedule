@@ -9,6 +9,7 @@
     <link href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css' rel='stylesheet'>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -20,6 +21,10 @@
             var tokenEl = document.getElementById('token');
             var calLoadSpinnerEl = document.getElementById('calLoadSpinner');
             var overflowTotalEl = document.getElementById('overflowTotal');
+            var eventModalEl = document.getElementById('eventModal');
+            var eventModalTitleEl = document.getElementById('eventModalTitle');
+            var eventModalBodyEl = document.getElementById('eventModalBody');
+            var eventModal = new bootstrap.Modal(eventModalEl);
             var currentDate = new Date();
             var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
             var localOffset = getTimeZoneOffset(currentDate, Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -79,7 +84,8 @@
                         resourceId: resourceId,
                         backgroundColor: stringToColor(events[i].sessionType.name),
                         textColor: '#000000',
-                        borderColor: '#000000'
+                        borderColor: '#000000',
+                        metadata: events[i]
                     };
                     calEvents.push(calEvent);
                 }
@@ -95,7 +101,12 @@
                         center: 'title',
                         right: 'dayGridMonth,timeGridWeek,timeGridDay,resourceTimeline,resourceTimeGridDay'
                     },
-                    events: calEvents
+                    events: calEvents,
+                    eventClick: function (info) {
+                        eventModalTitleEl.innerText = info.event.title;
+                        eventModalBodyEl.innerText = JSON.stringify(info.event.extendedProps);
+                        eventModal.show();
+                    }
                 });
                 calendar.render();
             }
@@ -364,7 +375,7 @@
             <p><a href="https://portal.awsevents.com/events/reInvent2022/registration">re:invent 2022 login page</a></p>
         </div>
     </div>
-    <div style="padding:0px 0px 0px 20px;">
+    <div style="width:98%">
         <div class="row">
             <div class="col-11">
                 <div id="calLoadSpinner" class="spinner-border" role="status" style="display:none;">
@@ -388,6 +399,23 @@
         <div class="row">
             <div class="col">
                 <ul id="overflow" style="display:none;"></ul>
+            </div>
+        </div>
+    </div>
+    <div class="modal" tabindex="-1" id="eventModal">
+        <div class="modal-dialog modal-fullscreen-md-down modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalTitle">Modal title</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventModalBody">
+                    <p>Modal body text goes here.</p>
+                </div>
+                <!-- <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save changes</button>
+                </div> -->
             </div>
         </div>
     </div>
