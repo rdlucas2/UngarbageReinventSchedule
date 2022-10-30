@@ -12,7 +12,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var apiBaseUrl = 'http://localhost:8000/api';
             var calendar = null;
             var calendarEl = document.getElementById('calendar');
             var overflowEl = document.getElementById('overflow');
@@ -141,7 +140,7 @@
                 displayOverflowTotal();
             }
 
-            async function loadEvents() {
+            async function prepDataForLocalStorage() {
                 localStorage.clear();
                 let rawEvents = await loadFromAws();
                 let d = rawEvents.data;
@@ -165,9 +164,9 @@
                         d[i].id = i;
                         if (!(d[i].venue && d[i].room)) {
                             d[i].venue = {};
-                            d[i].venue.name = "";
+                            d[i].venue.name = "No";
                             d[i].room = {};
-                            d[i].room.name = "No Room";
+                            d[i].room.name = "Room";
                         }
                         events.push(d[i]);
                     } else {
@@ -187,19 +186,7 @@
 
             document.getElementById('filter').addEventListener('change', function () {
                 console.log('You selected: ', this.value);
-                //TODO: filter results from indexedDB into the calendar
-                switch (this.value) {
-                    case 'all':
-                        break;
-                    case 'reservable':
-                        break;
-                    case 'wait list available':
-                        break;
-                    case 'reserved':
-                        break;
-                    case 'favorites':
-                        break;
-                }
+                loadEventsFromLocal(this.value);
             });
 
             document.getElementById('overflowToggle').addEventListener('click', function () {
@@ -211,10 +198,6 @@
             });
 
             document.getElementById('loadEvents').addEventListener('click', function () {
-                // loadFromAws().then((data) => {
-                //     console.log(data);
-                // });
-
                 const request = indexedDB.open("EventDatabase", 1);
 
                 request.onerror = function (event) {
@@ -228,7 +211,7 @@
                 };
 
                 request.onsuccess = function () {
-                    loadEvents().then(events => {
+                    prepDataForLocalStorage().then(events => {
                         console.log(events.length);
                         const db = request.result;
                         const clearTransaction = db.transaction("events", "readwrite").objectStore("events").clear();
@@ -250,37 +233,6 @@
                 };
             });
 
-            function loadEventsFromLocal() {
-                const req = indexedDB.open("EventDatabase", 1);
-
-                req.onerror = function (event) {
-                    console.error("An error occurred with IndexedDB");
-                    console.error(event);
-                };
-
-                req.onsuccess = (e) => {
-                    // Create the DB connection
-                    let localdb = req.result;
-                    let t;
-                    try {
-                        t = localdb.transaction('events', 'readonly').objectStore('events').getAll();
-                    } catch (error) {
-                        console.log(error);
-                        indexedDB.deleteDatabase('EventDatabase');
-                        alert('Locally stored events do not exist, you must get your bearer token and use the (re)load events button');
-                        return;
-                    }
-                    t.onsuccess = () => {
-                        const events = t.result;
-                        displayAll(events);
-                    }
-                    t.oncomplete = function () {
-                        localdb.close();
-                    };
-                };
-            }
-
-            loadEventsFromLocal();
             async function loadFromAws() {
                 let next_token = null;
                 let results = [];
@@ -318,6 +270,58 @@
                     "data": results
                 };
             }
+
+            function loadEventsFromLocal(filter) {
+                const req = indexedDB.open("EventDatabase", 1);
+
+                req.onerror = function (event) {
+                    console.error("An error occurred with IndexedDB");
+                    console.error(event);
+                };
+
+                req.onsuccess = (e) => {
+                    // Create the DB connection
+                    let localdb = req.result;
+                    let t;
+                    try {
+                        t = localdb.transaction('events', 'readonly').objectStore('events').getAll();
+                    } catch (error) {
+                        console.log(error);
+                        indexedDB.deleteDatabase('EventDatabase');
+                        alert('Locally stored events do not exist, you must get your bearer token and use the (re)load events button');
+                        return;
+                    }
+                    t.onsuccess = () => {
+                        const events = t.result;
+                        let filteredEvents = null;
+                        switch (filter) {
+                            case 'reservable':
+                                filteredEvents = events.filter(x => x.action === 'RESERVABLE');
+                                break;
+                            case 'waitlistable':
+                                filteredEvents = events.filter(x => x.action === 'WAITLISTABLE');
+                                break;
+                            case 'reserved':
+                                filteredEvents = events.filter(x => x.action === 'RESERVED');
+                                break;
+                            case 'favorites':
+                                filteredEvents = events.filter(x => x.isFavoritedByMe);
+                                break;
+                            default:
+                                console.log(events);
+                                displayAll(events);
+                                return;
+                        }
+                        console.log(filteredEvents);
+                        displayAll(filteredEvents);
+                    }
+                    t.oncomplete = function () {
+                        localdb.close();
+                    };
+                };
+            }
+
+            loadEventsFromLocal();
         });
     </script>
 </head>
@@ -325,7 +329,7 @@
 <body>
     <label for="filter">Filter events:</label>
     <select id="filter" name="filter">
-        <option value="">all</option>
+        <option value="all">all</option>
         <option value="reserved">reserved</option>
         <option value="reservable">reservable</option>
         <option value="favorites">favorites</option>
