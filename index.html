@@ -18,6 +18,7 @@
             var refreshEl = document.getElementById("refresh");
             var legendEl = document.getElementById('legend');
             var tokenEl = document.getElementById('token');
+            var calLoadSpinnerEl = document.getElementById('calLoadSpinner');
             var overflowTotalEl = document.getElementById('overflowTotal');
             var currentDate = new Date();
             var vegasOffset = getTimeZoneOffset(currentDate, 'America/Los_Angeles');
@@ -82,11 +83,12 @@
                     };
                     calEvents.push(calEvent);
                 }
+                let initialDate = currentDate.getDate() < 27 || currentDate.getMonth() + 1 < 11 || currentDate.getFullYear() < 2022 ? '2022-11-28' : Date.now();
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
                     themeSystem: 'bootsrap5',
                     initialView: 'resourceTimeline',
-                    initialDate: '2022-11-28', //Date.now(),
+                    initialDate: initialDate,
                     resources: resources,
                     headerToolbar: {
                         left: 'prev,next today',
@@ -96,6 +98,14 @@
                     events: calEvents
                 });
                 calendar.render();
+            }
+
+            function toggleSpinner() {
+                if (calLoadSpinnerEl.style.display === "none") {
+                    calLoadSpinnerEl.style.display = "block";
+                } else {
+                    calLoadSpinnerEl.style.display = "none";
+                }
             }
 
             function displayLegend(events) {
@@ -110,7 +120,7 @@
                 }
                 clearElement(legendEl);
                 for (var i = 0; i < legend.length; i++) {
-                    legendEl.innerHTML += `<li style="float:left;">${legend[i].label} <div style="background-color: ${legend[i].color}; width:20px; height:20px; text-indent: -9999px;">x</div></li>`;
+                    legendEl.innerHTML += `<li>${legend[i].label} <div style="background-color: ${legend[i].color}; width:20px; height:20px; text-indent: -9999px;">x</div></li>`;
                 }
             }
 
@@ -198,6 +208,7 @@
             });
 
             document.getElementById('loadEvents').addEventListener('click', function () {
+                toggleSpinner();
                 const request = indexedDB.open("EventDatabase", 1);
 
                 request.onerror = function (event) {
@@ -212,7 +223,6 @@
 
                 request.onsuccess = function () {
                     prepDataForLocalStorage().then(events => {
-                        console.log(events.length);
                         const db = request.result;
                         const clearTransaction = db.transaction("events", "readwrite").objectStore("events").clear();
                         clearTransaction.onsuccess = () => {
@@ -225,6 +235,7 @@
                                 db.close();
                             };
                             displayAll(events);
+                            toggleSpinner();
                         }
                         clearTransaction.onerror = (err) => {
                             console.log(err);
@@ -272,6 +283,7 @@
             }
 
             function loadEventsFromLocal(filter) {
+                toggleSpinner();
                 const req = indexedDB.open("EventDatabase", 1);
 
                 req.onerror = function (event) {
@@ -308,12 +320,12 @@
                                 filteredEvents = events.filter(x => x.isFavoritedByMe);
                                 break;
                             default:
-                                console.log(events);
                                 displayAll(events);
+                                toggleSpinner();
                                 return;
                         }
-                        console.log(filteredEvents);
                         displayAll(filteredEvents);
+                        toggleSpinner();
                     }
                     t.oncomplete = function () {
                         localdb.close();
@@ -327,25 +339,58 @@
 </head>
 
 <body>
-    <label for="filter">Filter events:</label>
-    <select id="filter" name="filter">
-        <option value="all">all</option>
-        <option value="reserved">reserved</option>
-        <option value="reservable">reservable</option>
-        <option value="favorites">favorites</option>
-        <option value="waitlistable">wait list available</option>
-    </select>
-    <label for="token">Bearer Token for AWS Lambda:</label>
-    <input type="password" name="token" id="token"><button id="loadEvents">(re)load events</button>
-    <p>Your events are saved to local storage in your browser. You must provide your bearer token (found by using
-        browser dev tools on the re:invent event page). Use the (re)load events button to initialize events, or reload
-        after you make a change on the event site.</p>
-    <p><a href="https://portal.awsevents.com/events/reInvent2022/registration">re:invent 2022 login page</a></p>
-    <ul id="legend" style="list-style-type: none; padding-right:20px"></ul>
-    <div id="calendar" style="clear:left;"></div>
-    <button id="overflowToggle">Show/Hide Events Without Venue or Times (<span id="overflowTotal"></span>
-        Total)</button>
-    <ul id="overflow" style="display:none;"></ul>
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <label for="filter">Filter events:</label>
+                <select id="filter" name="filter">
+                    <option value="all">all</option>
+                    <option value="reserved">reserved</option>
+                    <option value="reservable">reservable</option>
+                    <option value="favorites">favorites</option>
+                    <option value="waitlistable">wait list available</option>
+                </select>
+            </div>
+            <div class="col">
+                <label for="token">Bearer Token from AWS Events Site:</label>
+                <input type="password" name="token" id="token"><button id="loadEvents">(re)load events</button>
+            </div>
+        </div>
+        <div class="row">
+            <p>Your events are saved to local storage in your browser. You must provide your bearer token (found by
+                using browser dev tools on the re:invent event page). Use the (re)load events button to initialize
+                events, or reload after you make a change on the event site. Load of events will take up to a minute
+                usually.</p>
+            <p><a href="https://portal.awsevents.com/events/reInvent2022/registration">re:invent 2022 login page</a></p>
+        </div>
+    </div>
+    <div style="padding:0px 0px 0px 20px;">
+        <div class="row">
+            <div class="col-11">
+                <div id="calLoadSpinner" class="spinner-border" role="status" style="display:none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div id="calendar"></div>
+            </div>
+            <div class="col-1">
+                <h6>Legend:</h>
+                    <ul id="legend" style="list-style-type: none; padding-left:5px"></ul>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <button id="overflowToggle">Show/Hide Events Without Venue or Times (<span id="overflowTotal"></span>
+                    Total)</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <ul id="overflow" style="display:none;"></ul>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
