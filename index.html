@@ -143,10 +143,10 @@
 
             function displayCalendar(events, resources) {
                 let calEvents = [];
+                let isNotConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
                 for (var i = 0; i < events.length; i++) {
                     resourceId = `${events[i].venue.name} ${events[i].room.name}`
                     //This is a very hacky way to do this, but I didn't want to use npm and webpack or some other build system for the frontend
-                    let isNotConferenceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone !== 'America/Los_Angeles'
                     calEvent = {
                         id: i + 1,
                         start: isNotConferenceTimezone ? (events[i].startTime - offsetFromLosAngelesTime) : events[i].startTime,
@@ -174,8 +174,8 @@
                     },
                     events: calEvents,
                     eventClick: function (info) {
-                        eventModalTitleEl.innerText = info.event.title;
-                        eventModalBodyEl.innerText = JSON.stringify(info.event.extendedProps);
+                        eventModalTitleEl.innerText = `${info.event.title}`;
+                        eventModalBodyEl.innerHTML = `<ul><li>Venue/Room: ${info.event.extendedProps.metadata.venue.name} ${info.event.extendedProps.metadata.room.name}</li><li>TIME: ${new Date(info.event.extendedProps.metadata.startTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}-${new Date(info.event.extendedProps.metadata.endTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}</li><li>${JSON.stringify(info.event.extendedProps.metadata)}</li></ul>`;
                         eventModal.show();
                     }
                     //,
@@ -381,11 +381,38 @@
                                 filteredEvents = events.filter(x => x.isFavoritedByMe);
                                 break;
                             default:
-                                displayAll(events);
-                                toggleSpinner(calLoadSpinnerEl);
-                                return;
+                                filteredEvents = events;
                         }
-                        displayAll(filteredEvents);
+                        let searchedEvents = [];
+                        if (searchEl.value !== "") {
+                            let searchTerm = searchEl.value;
+                            var regex = new RegExp(`${searchTerm}`, "gi");
+                            for (var i = 0; i < filteredEvents.length; i++) {
+                                let isMatch = false;
+                                if (filteredEvents[i].tracks) {
+                                    for (var j = 0; j < filteredEvents[i].tracks.length; j++) {
+                                        if (filteredEvents[i].tracks[j].name.match(regex)) {
+                                            isMatch = true;
+                                        }
+                                    }
+                                }
+                                if (filteredEvents[i].name.match(regex)) {
+                                    isMatch = true;
+                                }
+                                if (filteredEvents[i].sessionType.name.match(regex)) {
+                                    isMatch = true;
+                                }
+                                if (filteredEvents[i].description.match(regex)) {
+                                    isMatch = true;
+                                }
+                                if (isMatch) {
+                                    searchedEvents.push(filteredEvents[i]);
+                                }
+                            }
+                        } else {
+                            searchedEvents = filteredEvents
+                        }
+                        displayAll(searchedEvents);
                         toggleSpinner(calLoadSpinnerEl);
                     }
                     t.oncomplete = function () {
@@ -394,7 +421,12 @@
                 };
             }
 
-            searchBtnEl.addEventListener('click', function () {
+            async function loadEventsFromLocalAsync(filter) {
+                loadEventsFromLocal(filter);
+            }
+
+            searchBtnEl.addEventListener('click', async function () {
+                await loadEventsFromLocalAsync(filterEl.value);
                 toggleSpinner(searchSpinnerEl);
                 setTimeout(function () {
                     let counter = 0;
@@ -513,6 +545,12 @@
                 </div>
             </div>
             <div class="col">
+                <input type="search" id="search" name="search"><button id="searchBtn">Search</button>
+                <div id="searchSpinner" class="spinner-border" role="status" style="display:none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+            <div class="col">
                 <label for="token">Bearer Token from AWS Events Site:</label>
                 <input type="password" name="token" id="token"><button id="loadEvents">(re)load events</button>
             </div>
@@ -541,14 +579,8 @@
     </div>
     <div class="container">
         <div class="row">
-            <div class="col-8">
+            <div class="col">
                 <h4>Event List (<span id="eventListTotal">0</span> Total):</h4>
-            </div>
-            <div class="col-4">
-                <input type="search" id="search" name="search"><button id="searchBtn">Search</button>
-                <div id="searchSpinner" class="spinner-border" role="status" style="display:none;">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
             </div>
         </div>
         <div class="row">
