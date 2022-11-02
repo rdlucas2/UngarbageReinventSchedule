@@ -22,8 +22,14 @@
             var legendEl = document.getElementById('legend');
             var tokenEl = document.getElementById('token');
             var calLoadSpinnerEl = document.getElementById('calLoadSpinner');
+            var filterEl = document.getElementById('filter');
+            var overflowToggleEl = document.getElementById('overflowToggle');
+            var loadEventsEl = document.getElementById('loadEvents');
             var overflowTotalEl = document.getElementById('overflowTotal');
+            var searchEl = document.getElementById('search');
+            var searchBtnEl = document.getElementById('searchBtn');
             var searchableEventListEl = document.getElementById('searchableEventList');
+            var searchSpinnerEl = document.getElementById('searchSpinner');
             var eventListTotalEl = document.getElementById('eventListTotal');
             var eventModalEl = document.getElementById('eventModal');
             var eventModalTitleEl = document.getElementById('eventModalTitle');
@@ -120,11 +126,11 @@
                 calendar.render();
             }
 
-            function toggleSpinner() {
-                if (calLoadSpinnerEl.style.display === "none") {
-                    calLoadSpinnerEl.style.display = "block";
+            function toggleSpinner(spinnerEl) {
+                if (spinnerEl.style.display === "none") {
+                    spinnerEl.style.display = "block";
                 } else {
-                    calLoadSpinnerEl.style.display = "none";
+                    spinnerEl.style.display = "none";
                 }
             }
 
@@ -151,7 +157,7 @@
                     if (key.startsWith('overflow')) {
                         var li = document.createElement('li');
                         var pre = document.createElement('pre');
-                        pre.appendChild(document.createTextNode(JSON.stringify(JSON.parse(localStorage.getItem(key)), null, 4)));
+                        pre.appendChild(document.createTextNode(JSON.stringify(JSON.parse(localStorage.getItem(key)), null, 2)));
                         li.appendChild(pre);
                         overflowEl.appendChild(li);
                     }
@@ -166,8 +172,9 @@
                 clearElement(searchableEventListEl);
                 for (var i = 0; i < events.length; i++) {
                     var li = document.createElement('li');
+                    li.className = 'searchable';
                     var pre = document.createElement('pre');
-                    pre.appendChild(document.createTextNode(JSON.stringify(events[i], null, 4)));
+                    pre.appendChild(document.createTextNode(JSON.stringify(events[i], null, 2)));
                     li.appendChild(pre);
                     searchableEventListEl.appendChild(li);
                 }
@@ -175,6 +182,11 @@
             }
 
             function displayAll(events) {
+                try {
+                    searchEl.removeEventListener('keyup');
+                } catch (err) {
+                    console.log(err);
+                }
                 let resources = JSON.parse(localStorage.getItem('resources'));
                 displayCalendar(events, resources);
                 displayLegend(events);
@@ -227,56 +239,6 @@
                 return events
             }
 
-            document.getElementById('filter').addEventListener('change', function () {
-                console.log('You selected: ', this.value);
-                loadEventsFromLocal(this.value);
-            });
-
-            document.getElementById('overflowToggle').addEventListener('click', function () {
-                if (overflowEl.style.display === "none") {
-                    overflowEl.style.display = "block";
-                } else {
-                    overflowEl.style.display = "none";
-                }
-            });
-
-            document.getElementById('loadEvents').addEventListener('click', function () {
-                toggleSpinner();
-                const request = indexedDB.open("EventDatabase", 1);
-
-                request.onerror = function (event) {
-                    console.error("An error occurred with IndexedDB");
-                    console.error(event);
-                };
-
-                request.onupgradeneeded = function () {
-                    const db = request.result;
-                    const store = db.createObjectStore("events", { keyPath: "id" });
-                };
-
-                request.onsuccess = function () {
-                    prepDataForLocalStorage().then(events => {
-                        const db = request.result;
-                        const clearTransaction = db.transaction("events", "readwrite").objectStore("events").clear();
-                        clearTransaction.onsuccess = () => {
-                            const transaction = db.transaction("events", "readwrite");
-                            const store = transaction.objectStore("events");
-                            for (var i = 0; i < events.length; i++) {
-                                store.put(events[i]);
-                            }
-                            transaction.oncomplete = function () {
-                                db.close();
-                            };
-                            displayAll(events);
-                            toggleSpinner();
-                        }
-                        clearTransaction.onerror = (err) => {
-                            console.log(err);
-                        }
-                    });
-                };
-            });
-
             async function loadFromAws() {
                 let next_token = null;
                 let results = [];
@@ -316,7 +278,7 @@
             }
 
             function loadEventsFromLocal(filter) {
-                toggleSpinner();
+                toggleSpinner(calLoadSpinnerEl);
                 const req = indexedDB.open("EventDatabase", 1);
 
                 req.onerror = function (event) {
@@ -350,7 +312,7 @@
                                 filteredEvents = events.filter(x => x.action === 'RESERVED');
                                 //TODO: make a button for this instead of doing it on load?
                                 var cal = ics();
-                                for(var i = 0; i < filteredEvents.length; i++) {
+                                for (var i = 0; i < filteredEvents.length; i++) {
                                     cal.addEvent(filteredEvents[i].name, JSON.stringify(filteredEvents[i]), `${filteredEvents[i].venue.name} ${filteredEvents[i].room.name}`, filteredEvents[i].startTime, filteredEvents[i].endTime);
                                 }
                                 cal.download('reinventSchedule');
@@ -360,17 +322,111 @@
                                 break;
                             default:
                                 displayAll(events);
-                                toggleSpinner();
+                                toggleSpinner(calLoadSpinnerEl);
                                 return;
                         }
                         displayAll(filteredEvents);
-                        toggleSpinner();
+                        toggleSpinner(calLoadSpinnerEl);
                     }
                     t.oncomplete = function () {
                         localdb.close();
                     };
                 };
             }
+
+            searchBtnEl.addEventListener('click', function () {
+                toggleSpinner(searchSpinnerEl);
+                setTimeout(function () {
+                    let counter = 0;
+                    let searchTerm = searchEl.value;
+                    let searchable = document.getElementsByClassName('searchable');
+                    if(searchTerm === "") {
+                        for (var i = 0; i < searchable.length; i++) {
+                            searchable[i].style.display = "block";
+                        }
+                        eventListTotalEl.innerText = searchable.length;
+                        toggleSpinner(searchSpinnerEl);
+                        return;
+                    }
+                    var regex = new RegExp(`${searchTerm}`, "gi");
+                    for (var i = 0; i < searchable.length; i++) {
+                        let json = JSON.parse(searchable[i].innerText);
+                        let isMatch = false;
+                        if (json.tracks) {
+                            for (var j = 0; j < json.tracks.length; j++) {
+                                if (json.tracks[j].name.match(regex)) {
+                                    isMatch = true;
+                                }
+                            }
+                        }
+                        if (json.name.match(regex)) {
+                            isMatch = true;
+                        }
+                        if (json.description.match(regex)) {
+                            isMatch = true;
+                        }
+                        if (isMatch) {
+                            counter++;
+                            searchable[i].style.display = "block";
+                        } else {
+                            searchable[i].style.display = "none";
+                        }
+                    }
+                    eventListTotalEl.innerText = counter;
+                    toggleSpinner(searchSpinnerEl);
+                }, 5);
+            });
+
+            filterEl.addEventListener('change', function () {
+                console.log('You selected: ', this.value);
+                loadEventsFromLocal(this.value);
+            });
+
+            overflowToggleEl.addEventListener('click', function () {
+                if (overflowEl.style.display === "none") {
+                    overflowEl.style.display = "block";
+                } else {
+                    overflowEl.style.display = "none";
+                }
+            });
+
+            loadEventsEl.addEventListener('click', function () {
+                toggleSpinner(calLoadSpinnerEl);
+                const request = indexedDB.open("EventDatabase", 1);
+
+                request.onerror = function (event) {
+                    console.error("An error occurred with IndexedDB");
+                    console.error(event);
+                };
+
+                request.onupgradeneeded = function () {
+                    const db = request.result;
+                    const store = db.createObjectStore("events", { keyPath: "id" });
+                };
+
+                request.onsuccess = function () {
+                    prepDataForLocalStorage().then(events => {
+                        const db = request.result;
+                        const clearTransaction = db.transaction("events", "readwrite").objectStore("events").clear();
+                        clearTransaction.onsuccess = () => {
+                            const transaction = db.transaction("events", "readwrite");
+                            const store = transaction.objectStore("events");
+                            for (var i = 0; i < events.length; i++) {
+                                store.put(events[i]);
+                            }
+                            transaction.oncomplete = function () {
+                                db.close();
+                            };
+                            displayAll(events);
+                            toggleSpinner(calLoadSpinnerEl);
+                        }
+                        clearTransaction.onerror = (err) => {
+                            console.log(err);
+                        }
+                    });
+                };
+            });
+
 
             loadEventsFromLocal();
         });
@@ -423,7 +479,10 @@
                 <h4>Event List (<span id="eventListTotal">0</span> Total):</h4>
             </div>
             <div class="col-4">
-                <input type="search">
+                <input type="search" id="search" name="search"><button id="searchBtn">Search</button>
+                <div id="searchSpinner" class="spinner-border" role="status" style="display:none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
             </div>
         </div>
         <div class="row">
