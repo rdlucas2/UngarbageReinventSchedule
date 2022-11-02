@@ -6,7 +6,3 @@ On initial visit, you must provide your jwt auth bearer token (use your browser 
 
 ### developing
 It's a static html file with a lot of javascript. No fancy build tools needed.
-
-### TODO:
-- make events exportable to outlook and/or google calendar (ics format?)
-- hover/click actions to display details of event

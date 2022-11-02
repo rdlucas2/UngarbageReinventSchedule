@@ -21,6 +21,19 @@
         .modal-content {
             background-color: black;
         }
+
+        .card {
+            background-color: black;
+        }
+
+        .searchable {
+            border: 1px solid white;
+            margin: 20px;
+        }
+
+        .overflow {
+            border: 1px solid white;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@5.11.3/main.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
@@ -37,6 +50,7 @@
             var tokenEl = document.getElementById('token');
             var calLoadSpinnerEl = document.getElementById('calLoadSpinner');
             var filterEl = document.getElementById('filter');
+            var sessionTypeFilterEl = document.getElementById('sessionTypeFilter');
             var overflowToggleEl = document.getElementById('overflowToggle');
             var loadEventsEl = document.getElementById('loadEvents');
             var overflowTotalEl = document.getElementById('overflowTotal');
@@ -174,8 +188,31 @@
                     },
                     events: calEvents,
                     eventClick: function (info) {
-                        eventModalTitleEl.innerText = `${info.event.title}`;
-                        eventModalBodyEl.innerHTML = `<ul><li>Venue/Room: ${info.event.extendedProps.metadata.venue.name} ${info.event.extendedProps.metadata.room.name}</li><li>TIME: ${new Date(info.event.extendedProps.metadata.startTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}-${new Date(info.event.extendedProps.metadata.endTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}</li><li>${JSON.stringify(info.event.extendedProps.metadata)}</li></ul>`;
+                        eventModalTitleEl.innerText = `${info.event.title} - ${info.event.extendedProps.metadata.sessionType.name}`;
+                        eventModalBodyEl.innerHTML = `
+                            <div class="row">
+                                <div class="col-2">Venue/Room:</div><div class="col-10">${info.event.extendedProps.metadata.venue.name} ${info.event.extendedProps.metadata.room.name}</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-2">TIME:</div><div class="col-10">${new Date(info.event.extendedProps.metadata.startTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}-${new Date(info.event.extendedProps.metadata.endTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-2">Description</div><div class="col-10">${info.event.extendedProps.metadata.description}</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-2">Details:</div>
+                                <div class="col-10">
+                                    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+                                        Show Details
+                                    </a>
+                                    <div class="collapse" id="collapseExample">
+                                        <div class="card card-body">
+                                            <pre>${JSON.stringify(info.event.extendedProps.metadata, null, 2)}</pre>
+                                        </div>
+                                    </div>                                    
+                                </div>
+                            </div>
+                            `;
                         eventModal.show();
                     }
                     //,
@@ -217,6 +254,7 @@
                     key = localStorage.key(i);
                     if (key.startsWith('overflow')) {
                         var li = document.createElement('li');
+                        li.className = 'overflow';
                         var pre = document.createElement('pre');
                         pre.appendChild(document.createTextNode(JSON.stringify(JSON.parse(localStorage.getItem(key)), null, 2)));
                         li.appendChild(pre);
@@ -232,12 +270,56 @@
             function displaySearchableEventList(events) {
                 clearElement(searchableEventListEl);
                 for (var i = 0; i < events.length; i++) {
-                    var li = document.createElement('li');
-                    li.className = 'searchable';
-                    var pre = document.createElement('pre');
-                    pre.appendChild(document.createTextNode(JSON.stringify(events[i], null, 2)));
-                    li.appendChild(pre);
-                    searchableEventListEl.appendChild(li);
+                    var outer = document.createElement('div');
+                    outer.className = 'searchable';
+                    var titleRow = document.createElement('div');
+                    titleRow.className = 'row';
+                    var titleCol2 = document.createElement('div');
+                    titleCol2.className = 'col-2';
+                    titleCol2.innerText = 'Title - Time (sessionType):'
+                    var titleCol10 = document.createElement('div');
+                    titleCol10.className = 'col-10';
+                    titleCol10.innerText = `${events[i].name} - ${new Date(events[i].startTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}-${new Date(events[i].endTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })} (${events[i].sessionType.name})`;
+                    titleRow.appendChild(titleCol2);
+                    titleRow.appendChild(titleCol10);
+
+                    var descriptionRow = document.createElement('div');
+                    descriptionRow.className = 'row';
+                    var descriptionCol2 = document.createElement('div');
+                    descriptionCol2.className = 'col-2';
+                    descriptionCol2.innerText = 'Description:'
+                    var descriptionCol10 = document.createElement('div');
+                    descriptionCol10.className = 'col-10';
+                    descriptionCol10.innerText = `${events[i].description}`
+                    descriptionRow.appendChild(descriptionCol2);
+                    descriptionRow.appendChild(descriptionCol10);
+
+                    // details was slowing down the UI too much
+                    // var detailsRow = document.createElement('div');
+                    // detailsRow.className = 'row';
+                    // var detailsCol2 = document.createElement('div');
+                    // detailsCol2.className = 'col-2';
+                    // detailsCol2.innerText = 'Details'
+                    // var detailsCol10 = document.createElement('div');
+                    // detailsCol10.className = 'col-10';
+                    // detailsCol10.innerHTML = `
+                    //     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch${i}" role="button" aria-expanded="false" aria-controls="collapseSearch${i}">
+                    //       Show Details
+                    //     </a>
+                    //     <div class="collapse" id="collapseSearch${i}">
+                    //       <div class="card card-body">
+                    //         <pre>${JSON.stringify(events[i], null, 2)}</pre>
+                    //       </div>
+                    //     </div>                      
+                    // `;
+                    // detailsRow.appendChild(detailsCol2);
+                    // detailsRow.appendChild(detailsCol10);
+
+                    outer.appendChild(titleRow);
+                    outer.appendChild(descriptionRow);
+                    // outer.appendChild(detailsRow);
+
+                    searchableEventListEl.appendChild(outer);
                 }
                 eventListTotalEl.innerText = events.length;
             }
@@ -343,8 +425,10 @@
                 };
             }
 
-            function loadEventsFromLocal(filter) {
+            function loadEventsFromLocal() {
                 toggleSpinner(calLoadSpinnerEl);
+                let filter = filterEl.value;
+                let sessionTypeFilter = sessionTypeFilterEl.value;
                 const req = indexedDB.open("EventDatabase", 1);
 
                 req.onerror = function (event) {
@@ -383,34 +467,87 @@
                             default:
                                 filteredEvents = events;
                         }
+                        let sessionFilteredEvents = [];
+                        switch (sessionTypeFilter) {
+                            case 'Community Activities':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Community Activities');
+                                break;
+                            case 'Bootcamp':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Bootcamp');
+                                break;
+                            case 'Gamified Learning':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Gamified Learning');
+                                break;
+                            case 'Lab':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Lab');
+                                break;
+                            case 'Chalk Talk':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Chalk Talk');
+                                break;
+                            case 'Workshop':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Workshop');
+                                break;
+                            case 'Breakout Session':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Breakout Session');
+                                break;
+                            case "Builders' Session":
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === "Builders' Session");
+                                break;
+                            case 'Leadership Session':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Leadership Session');
+                                break;
+                            case 'Conference Services':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Conference Services');
+                                break;
+                            case 'Geo Talk':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Geo Talk');
+                                break;
+                            case 'Geo Breakout':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Geo Breakout');
+                                break;
+                            case 'Theater Session':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Theater Session');
+                                break;
+                            case 'Lightning Talk':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Lightning Talk');
+                                break;
+                            case 'Keynote':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Keynote');
+                                break;
+                            case 'Dev Chat':
+                                sessionFilteredEvents = filteredEvents.filter(x => x.sessionType.name === 'Dev Chat');
+                                break;
+                            default:
+                                sessionFilteredEvents = filteredEvents;
+                        }
                         let searchedEvents = [];
                         if (searchEl.value !== "") {
                             let searchTerm = searchEl.value;
                             var regex = new RegExp(`${searchTerm}`, "gi");
-                            for (var i = 0; i < filteredEvents.length; i++) {
+                            for (var i = 0; i < sessionFilteredEvents.length; i++) {
                                 let isMatch = false;
-                                if (filteredEvents[i].tracks) {
+                                if (sessionFilteredEvents[i].tracks) {
                                     for (var j = 0; j < filteredEvents[i].tracks.length; j++) {
-                                        if (filteredEvents[i].tracks[j].name.match(regex)) {
+                                        if (sessionFilteredEvents[i].tracks[j].name.match(regex)) {
                                             isMatch = true;
                                         }
                                     }
                                 }
-                                if (filteredEvents[i].name.match(regex)) {
+                                if (sessionFilteredEvents[i].name.match(regex)) {
                                     isMatch = true;
                                 }
-                                if (filteredEvents[i].sessionType.name.match(regex)) {
+                                if (sessionFilteredEvents[i].sessionType.name.match(regex)) {
                                     isMatch = true;
                                 }
-                                if (filteredEvents[i].description.match(regex)) {
+                                if (sessionFilteredEvents[i].description.match(regex)) {
                                     isMatch = true;
                                 }
                                 if (isMatch) {
-                                    searchedEvents.push(filteredEvents[i]);
+                                    searchedEvents.push(sessionFilteredEvents[i]);
                                 }
                             }
                         } else {
-                            searchedEvents = filteredEvents
+                            searchedEvents = sessionFilteredEvents
                         }
                         displayAll(searchedEvents);
                         toggleSpinner(calLoadSpinnerEl);
@@ -421,12 +558,12 @@
                 };
             }
 
-            async function loadEventsFromLocalAsync(filter) {
-                loadEventsFromLocal(filter);
+            async function loadEventsFromLocalAsync() {
+                loadEventsFromLocal();
             }
 
             searchBtnEl.addEventListener('click', async function () {
-                await loadEventsFromLocalAsync(filterEl.value);
+                await loadEventsFromLocalAsync();
                 toggleSpinner(searchSpinnerEl);
                 setTimeout(function () {
                     let counter = 0;
@@ -474,7 +611,12 @@
 
             filterEl.addEventListener('change', function () {
                 console.log('You selected: ', this.value);
-                loadEventsFromLocal(this.value);
+                loadEventsFromLocal();
+            });
+
+            sessionTypeFilterEl.addEventListener('change', function () {
+                console.log('You selected: ', this.value);
+                loadEventsFromLocal();
             });
 
             overflowToggleEl.addEventListener('click', function () {
@@ -522,7 +664,6 @@
                 };
             });
 
-
             loadEventsFromLocal();
         });
     </script>
@@ -539,6 +680,26 @@
                     <option value="waitlistable">wait list available</option>
                     <option value="favorites">favorites</option>
                     <option value="reserved">reserved</option>
+                </select>
+                <br />
+                <label for="sessionTypeFilter">Session Type:</label>
+                <select id="sessionTypeFilter" name="sessionTypeFilter">
+                    <option value="all">all</option>
+                    <option value="Community Activities">Community Activities</option>
+                    <option value="Bootcamp">Bootcamp</option>
+                    <option value="Gamified Learning">Gamified Learning</option>
+                    <option value="Lab">Lab</option>
+                    <option value="Chalk Talk">Chalk Talk</option>
+                    <option value="Workshop">Workshop</option>
+                    <option value="Breakout Session">Breakout Session</option>
+                    <option value="Builders' Session">Builders' Session</option>
+                    <option value="Leadership Session">Leadership Session</option>
+                    <option value="Conference Services">Conference Services</option>
+                    <option value="Geo Talk">Geo Talk</option>
+                    <option value="Geo Breakout">Geo Breakout</option>
+                    <option value="Theater Session">Theater Session</option>
+                    <option value="Lightning Talk">Lightning Talk</option>
+                    <option value="Dev Chat">Dev Chat</option>
                 </select>
                 <div id="icsParent">
                     <button id="ics">Generate ICS for all events on current calendar display</button>
@@ -583,10 +744,7 @@
                 <h4>Event List (<span id="eventListTotal">0</span> Total):</h4>
             </div>
         </div>
-        <div class="row">
-            <div class="col">
-                <ul id="searchableEventList"></ul>
-            </div>
+        <div id="searchableEventList">
         </div>
     </div>
     <div class="container">
