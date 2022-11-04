@@ -414,7 +414,7 @@
                                 "variables": {
                                     "input": {
                                         "eventId": "53b5de8d-7b9d-4fcc-a178-6433641075fe",
-                                        "maxResults": 97,
+                                        "maxResults": 25,
                                         "nextToken": next_token,
                                     }
                                 },
@@ -580,42 +580,6 @@
                     let counter = 0;
                     let searchTerm = searchEl.value;
                     let searchable = document.getElementsByClassName('searchable');
-                    // if (searchTerm === "") {
-                    //     for (var i = 0; i < searchable.length; i++) {
-                    //         searchable[i].style.display = "block";
-                    //     }
-                    //     eventListTotalEl.innerText = searchable.length;
-                    //     toggleSpinner(searchSpinnerEl);
-                    //     return;
-                    // }
-                    // var regex = new RegExp(`${searchTerm}`, "gi");
-                    // for (var i = 0; i < searchable.length; i++) {
-                    //     let json = JSON.parse(searchable[i].innerText);
-                    //     let isMatch = false;
-                    //     if (json.tracks) {
-                    //         for (var j = 0; j < json.tracks.length; j++) {
-                    //             if (json.tracks[j].name.match(regex)) {
-                    //                 isMatch = true;
-                    //             }
-                    //         }
-                    //     }
-                    //     if (json.name.match(regex)) {
-                    //         isMatch = true;
-                    //     }
-                    //     if (json.sessionType.name.match(regex)) {
-                    //         isMatch = true;
-                    //     }
-                    //     if (json.description.match(regex)) {
-                    //         isMatch = true;
-                    //     }
-                    //     if (isMatch) {
-                    //         counter++;
-                    //         searchable[i].style.display = "block";
-                    //     } else {
-                    //         searchable[i].style.display = "none";
-                    //     }
-                    // }
-                    // eventListTotalEl.innerText = counter;
                     eventListTotalEl.innerText = searchable.length;
                     toggleSpinner(searchSpinnerEl);
                 }, 5);
