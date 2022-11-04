@@ -26,7 +26,7 @@
             background-color: black;
         }
 
-        .searchable {
+        .searchList {
             border: 1px solid white;
             margin: 20px;
         }
@@ -271,7 +271,7 @@
                 clearElement(searchableEventListEl);
                 for (var i = 0; i < events.length; i++) {
                     var outer = document.createElement('div');
-                    outer.className = 'searchable';
+                    outer.className = 'searchList';
                     var titleRow = document.createElement('div');
                     titleRow.className = 'row';
                     var titleCol2 = document.createElement('div');
@@ -282,6 +282,17 @@
                     titleCol10.innerText = `${events[i].name} - ${new Date(events[i].startTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })}-${new Date(events[i].endTime).toLocaleString('en-us', { timeZone: 'America/Los_Angeles' })} (${events[i].sessionType.name})`;
                     titleRow.appendChild(titleCol2);
                     titleRow.appendChild(titleCol10);
+
+                    var locationRow = document.createElement('div');
+                    locationRow.className = 'row';
+                    var locationCol2 = document.createElement('div');
+                    locationCol2.className = 'col-2';
+                    locationCol2.innerText = 'Location:'
+                    var locationCol10 = document.createElement('div');
+                    locationCol10.className = 'col-10';
+                    locationCol10.innerText = `${events[i].venue.name} ${events[i].room.name}`
+                    locationRow.appendChild(locationCol2);
+                    locationRow.appendChild(locationCol10);
 
                     var descriptionRow = document.createElement('div');
                     descriptionRow.className = 'row';
@@ -294,30 +305,30 @@
                     descriptionRow.appendChild(descriptionCol2);
                     descriptionRow.appendChild(descriptionCol10);
 
-                    // details was slowing down the UI too much
-                    // var detailsRow = document.createElement('div');
-                    // detailsRow.className = 'row';
-                    // var detailsCol2 = document.createElement('div');
-                    // detailsCol2.className = 'col-2';
-                    // detailsCol2.innerText = 'Details'
-                    // var detailsCol10 = document.createElement('div');
-                    // detailsCol10.className = 'col-10';
-                    // detailsCol10.innerHTML = `
-                    //     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch${i}" role="button" aria-expanded="false" aria-controls="collapseSearch${i}">
-                    //       Show Details
-                    //     </a>
-                    //     <div class="collapse" id="collapseSearch${i}">
-                    //       <div class="card card-body">
-                    //         <pre>${JSON.stringify(events[i], null, 2)}</pre>
-                    //       </div>
-                    //     </div>                      
-                    // `;
-                    // detailsRow.appendChild(detailsCol2);
-                    // detailsRow.appendChild(detailsCol10);
+                    var detailsRow = document.createElement('div');
+                    detailsRow.className = 'row';
+                    var detailsCol2 = document.createElement('div');
+                    detailsCol2.className = 'col-2';
+                    detailsCol2.innerText = 'Details'
+                    var detailsCol10 = document.createElement('div');
+                    detailsCol10.className = 'col-10';
+                    detailsCol10.innerHTML = `
+                        <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch${i}" role="button" aria-expanded="false" aria-controls="collapseSearch${i}">
+                          Show Details
+                        </a>
+                        <div class="collapse" id="collapseSearch${i}">
+                          <div class="card card-body">
+                            <pre class="searchable">${JSON.stringify(events[i], null, 2)}</pre>
+                          </div>
+                        </div>                      
+                    `;
+                    detailsRow.appendChild(detailsCol2);
+                    detailsRow.appendChild(detailsCol10);
 
                     outer.appendChild(titleRow);
+                    outer.appendChild(locationRow);
                     outer.appendChild(descriptionRow);
-                    // outer.appendChild(detailsRow);
+                    outer.appendChild(detailsRow);
 
                     searchableEventListEl.appendChild(outer);
                 }
@@ -569,42 +580,43 @@
                     let counter = 0;
                     let searchTerm = searchEl.value;
                     let searchable = document.getElementsByClassName('searchable');
-                    if (searchTerm === "") {
-                        for (var i = 0; i < searchable.length; i++) {
-                            searchable[i].style.display = "block";
-                        }
-                        eventListTotalEl.innerText = searchable.length;
-                        toggleSpinner(searchSpinnerEl);
-                        return;
-                    }
-                    var regex = new RegExp(`${searchTerm}`, "gi");
-                    for (var i = 0; i < searchable.length; i++) {
-                        let json = JSON.parse(searchable[i].innerText);
-                        let isMatch = false;
-                        if (json.tracks) {
-                            for (var j = 0; j < json.tracks.length; j++) {
-                                if (json.tracks[j].name.match(regex)) {
-                                    isMatch = true;
-                                }
-                            }
-                        }
-                        if (json.name.match(regex)) {
-                            isMatch = true;
-                        }
-                        if (json.sessionType.name.match(regex)) {
-                            isMatch = true;
-                        }
-                        if (json.description.match(regex)) {
-                            isMatch = true;
-                        }
-                        if (isMatch) {
-                            counter++;
-                            searchable[i].style.display = "block";
-                        } else {
-                            searchable[i].style.display = "none";
-                        }
-                    }
-                    eventListTotalEl.innerText = counter;
+                    // if (searchTerm === "") {
+                    //     for (var i = 0; i < searchable.length; i++) {
+                    //         searchable[i].style.display = "block";
+                    //     }
+                    //     eventListTotalEl.innerText = searchable.length;
+                    //     toggleSpinner(searchSpinnerEl);
+                    //     return;
+                    // }
+                    // var regex = new RegExp(`${searchTerm}`, "gi");
+                    // for (var i = 0; i < searchable.length; i++) {
+                    //     let json = JSON.parse(searchable[i].innerText);
+                    //     let isMatch = false;
+                    //     if (json.tracks) {
+                    //         for (var j = 0; j < json.tracks.length; j++) {
+                    //             if (json.tracks[j].name.match(regex)) {
+                    //                 isMatch = true;
+                    //             }
+                    //         }
+                    //     }
+                    //     if (json.name.match(regex)) {
+                    //         isMatch = true;
+                    //     }
+                    //     if (json.sessionType.name.match(regex)) {
+                    //         isMatch = true;
+                    //     }
+                    //     if (json.description.match(regex)) {
+                    //         isMatch = true;
+                    //     }
+                    //     if (isMatch) {
+                    //         counter++;
+                    //         searchable[i].style.display = "block";
+                    //     } else {
+                    //         searchable[i].style.display = "none";
+                    //     }
+                    // }
+                    // eventListTotalEl.innerText = counter;
+                    eventListTotalEl.innerText = searchable.length;
                     toggleSpinner(searchSpinnerEl);
                 }, 5);
             });
